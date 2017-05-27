@@ -25,26 +25,55 @@ definition(
 
 
 preferences {
-	section("Title") {
-		// TODO: put inputs here
-	}
+   section("Monitor These Devices") {
+        input "t_devices", "capability.temperatureMeasurement", required: true, title: "Temperature", multiple: true
+    }
 }
 
 def installed() {
-	log.debug "Installed with settings: ${settings}"
+	log.debug "[metrics] installed settings: ${settings}"
 
 	initialize()
 }
 
 def updated() {
-	log.debug "Updated with settings: ${settings}"
+	log.debug "[metrics] updated settings: ${settings}"
 
 	unsubscribe()
 	initialize()
 }
 
 def initialize() {
-	// TODO: subscribe to attributes, devices, locations, etc.
+	log.debug "[metrics] initializing"
+	log.debug "[metrics] unscheduling..."
+	unschedule()
+	log.debug "[metrics] scheduling..."
+    runEvery15Minutes(publishMetrics)
+    log.debug "[metrics] initialized"
 }
 
-// TODO: implement event handlers
+def publishMetrics() {
+	log.debug "[metrics] publishMetrics"
+    
+    t_devices.each{ d ->
+            def params = [
+                uri:  'https://datadrop.wolframcloud.com/api/v1.0/Add',
+                query: [bin:'lYr1BSA8', 
+                        t: d.currentValue("temperature"),
+                        n: d.displayName]
+                ]
+
+            log.debug "[metrics] publishing ${params}"
+
+        try {
+            httpGet(params) { resp ->
+                resp.headers.each {
+                   log.debug "${it.name} : ${it.value}"
+                }
+                log.debug "[metrics] response status: ${resp.status}"
+            }
+        } catch (e) {
+            log.error "[metrics] exception: $e"
+        }
+	}
+}
