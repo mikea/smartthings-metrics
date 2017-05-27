@@ -25,9 +25,19 @@ definition(
 
 
 preferences {
-   section("Monitor These Devices") {
-        input "t_devices", "capability.temperatureMeasurement", required: true, title: "Temperature", multiple: true
-    }
+   section("Collect Metrics") {
+        input "co2_devices", "capability.carbonDioxideMeasurement", required: false, title: "Carbon Dioxide", multiple: true
+        input "i_devices", "capability.illuminanceMeasurement", required: false, title: "Illuminance", multiple: true
+        input "ph_devices", "capability.phMeasurement", required: false, title: "pH", multiple: true
+        input "rh_devices", "capability.relativeHumidityMeasurement", required: false, title: "Relative Humidity", multiple: true
+        input "t_devices", "capability.temperatureMeasurement", required: false, title: "Temperature", multiple: true
+        input "v_devices", "capability.voltageMeasurement", required: false, title: "Voltage", multiple: true
+   }
+   
+   section("Publish Metrics") {
+        input "datadrop_bin", type: "text", required: true, title: "Wolfram Data Drop Bin ID"
+        input "period", type: "number", required: true, title: "Period, min", defaultValue: 15
+   }
 }
 
 def installed() {
@@ -52,28 +62,37 @@ def initialize() {
     log.debug "[metrics] initialized"
 }
 
-def publishMetrics() {
-	log.debug "[metrics] publishMetrics"
-    
-    t_devices.each{ d ->
-            def params = [
-                uri:  'https://datadrop.wolframcloud.com/api/v1.0/Add',
-                query: [bin:'lYr1BSA8', 
-                        t: d.currentValue("temperature"),
-                        n: d.displayName]
-                ]
+def publishDevice(device, parameterName) {
+    def params = [
+        uri:  'https://datadrop.wolframcloud.com/api/v1.0/Add',
+        query: [bin:datadrop_bin, 
+                v: d.currentValue(parameterName),
+                n: device.displayName]
+    ]
 
-            log.debug "[metrics] publishing ${params}"
+    log.debug "[metrics] publishing ${params}"
 
-        try {
-            httpGet(params) { resp ->
-                resp.headers.each {
-                   log.debug "${it.name} : ${it.value}"
-                }
-                log.debug "[metrics] response status: ${resp.status}"
-            }
-        } catch (e) {
-            log.error "[metrics] exception: $e"
+    try {
+        httpGet(params) { resp ->
+            log.debug "[metrics] response status: ${resp.status}"
         }
-	}
+    } catch (e) {
+        log.error "[metrics] exception: $e"
+    }
+}
+
+def publishMetrics() {
+	log.debug "[metrics] publishMetrics binid: ${datadrop_bin} ${period}"
+    
+    if (datadrop_bin == "") {
+    	log.error "[metrics] error: datadrop bin not set"
+        return
+    }
+    
+	co2_devices.each{ d -> publishDevice(d, "carbonDioxide") }
+	i_devices.each{ d -> publishDevice(d, "illuminance") }
+	ph_devices.each{ d -> publishDevice(d, "pH") }
+	rh_devices.each{ d -> publishDevice(d, "humidity") }
+	t_devices.each{ d -> publishDevice(d, "temperature") }
+    v_devices.each{ d -> publishDevice(d, "voltage") }
 }
