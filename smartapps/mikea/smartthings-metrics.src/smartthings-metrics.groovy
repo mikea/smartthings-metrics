@@ -58,27 +58,13 @@ def initialize() {
 	log.debug "[metrics] unscheduling..."
 	unschedule(publishMetrics)
 	log.debug "[metrics] scheduling..."
-    runEvery15Minutes(publishMetrics)
-    log.debug "[metrics] initialized"
+    schedule("0 0/15 * 1/1 * ? *", publishMetrics)
+    log.debug "[metrics] initialized, force publishing"
+    publishMetrics()
 }
 
-def publishDevice(device, parameterName) {
-    def params = [
-        uri:  'https://datadrop.wolframcloud.com/api/v1.0/Add',
-        query: [bin:datadrop_bin, 
-                v: device.currentValue(parameterName),
-                n: device.displayName]
-    ]
-
-    log.debug "[metrics] publishing ${params}"
-
-    try {
-        httpGet(params) { resp ->
-            log.debug "[metrics] response status: ${resp.status}"
-        }
-    } catch (e) {
-        log.error "[metrics] exception: $e"
-    }
+def updateParams(query, device, parameterName) {
+	query[device.displayName] = device.currentValue(parameterName)
 }
 
 def publishMetrics() {
@@ -89,10 +75,29 @@ def publishMetrics() {
         return
     }
     
-	co2_devices.each{ d -> publishDevice(d, "carbonDioxide") }
-	i_devices.each{ d -> publishDevice(d, "illuminance") }
-	ph_devices.each{ d -> publishDevice(d, "pH") }
-	rh_devices.each{ d -> publishDevice(d, "humidity") }
-	t_devices.each{ d -> publishDevice(d, "temperature") }
-    v_devices.each{ d -> publishDevice(d, "voltage") }
+    def query = ["bin": datadrop_bin]
+
+	co2_devices.each{ d -> updateParams(query, d, "carbonDioxide") }
+	i_devices.each{ d -> updateParams(query, d, "illuminance") }
+	ph_devices.each{ d -> updateParams(query, d, "pH") }
+	rh_devices.each{ d -> updateParams(query, d, "humidity") }
+	t_devices.each{ d -> updateParams(query, d, "temperature") }
+    v_devices.each{ d -> updateParams(query, d, "voltage") }
+	query["bin"] = datadrop_bin
+
+    def params = [
+        uri:  'https://datadrop.wolframcloud.com/api/v1.0/Add',
+        query: query
+    ]
+    
+    log.debug "[metrics] publishing ${params}"
+
+    try {
+        httpGet(params) { resp ->
+            log.debug "[metrics] response status: ${resp.status}"
+        }
+    } catch (e) {
+        log.error "[metrics] exception: $e"
+    }
+
 }
