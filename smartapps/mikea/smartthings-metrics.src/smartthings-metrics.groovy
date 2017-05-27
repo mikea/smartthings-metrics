@@ -14,10 +14,10 @@
  *
  */
 definition(
-    name: "smartthings-metrics",
+    name: "SmartThings Metrics",
     namespace: "mikea",
     author: "Mike Aizatsky",
-    description: "smartthings-metrics",
+    description: "Collect measurements from devices and publish to the cloud.",
     category: "SmartThings Labs",
     iconUrl: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
     iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
@@ -36,7 +36,7 @@ preferences {
    
    section("Publish Metrics") {
         input "datadrop_bin", type: "text", required: true, title: "Wolfram Data Drop Bin ID"
-        input "period", type: "number", required: true, title: "Period, min", defaultValue: 15
+        //input "period", type: "number", required: true, title: "Period, min", defaultValue: 15
    }
 }
 
@@ -56,7 +56,7 @@ def updated() {
 def initialize() {
 	log.debug "[metrics] initializing"
 	log.debug "[metrics] unscheduling..."
-	unschedule()
+	unschedule(publishMetrics)
 	log.debug "[metrics] scheduling..."
     runEvery15Minutes(publishMetrics)
     log.debug "[metrics] initialized"
@@ -66,7 +66,7 @@ def publishDevice(device, parameterName) {
     def params = [
         uri:  'https://datadrop.wolframcloud.com/api/v1.0/Add',
         query: [bin:datadrop_bin, 
-                v: d.currentValue(parameterName),
+                v: device.currentValue(parameterName),
                 n: device.displayName]
     ]
 
@@ -82,7 +82,7 @@ def publishDevice(device, parameterName) {
 }
 
 def publishMetrics() {
-	log.debug "[metrics] publishMetrics binid: ${datadrop_bin} ${period}"
+	log.debug "[metrics] publishMetrics binid: ${datadrop_bin}"
     
     if (datadrop_bin == "") {
     	log.error "[metrics] error: datadrop bin not set"
